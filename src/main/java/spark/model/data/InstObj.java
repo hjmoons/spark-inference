@@ -1,17 +1,31 @@
 package spark.model.data;
 
-/**
- * 입력데이터의 객체 클래스
- * JSON을 객체로 변환시 사용
- */
 public class InstObj {
     private float[][][][] instances;
+    private Long inputTime;
+    private int number;
+
+    public void setInstances(float[][][][] instances) {
+        this.instances = instances;
+    }
 
     public float[][][][] getInstances() {
         return instances;
     }
 
-    public void setInstances(float[][][][] instances) {
-        this.instances = instances;
+    public Long getInputTime() {
+        return inputTime;
+    }
+
+    public void setInputTime(Long inputTime) {
+        this.inputTime = inputTime;
+    }
+
+    public int getNumber() {
+        return number;
+    }
+
+    public void setNumber(int number) {
+        this.number = number;
     }
 }

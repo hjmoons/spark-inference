@@ -52,16 +52,17 @@ public class ModelMain implements Serializable {
         /* Inference Step */
         JavaDStream<String> files = inputs.map(input -> {
             if(!input.equals(null)) {
-                System.out.println(input);
-
                 ObjectMapper objectMapper = new ObjectMapper();
                 InstObj instObj = objectMapper.readValue(input, InstObj.class);
-
+                PredObj predObj = new PredObj();
                 Inference inference = new Inference("/home/hjmoon/models/mnist/1");
-                PredObj predObj = inference.execute(instObj, "input:0", "output/Softmax:0");
+
+                predObj.setPredictions(inference.execute(instObj.getInstances(), "input:0", "output/Softmax:0"));
+                predObj.setInputTime(instObj.getInputTime());
+                predObj.setOutputTime(System.currentTimeMillis());
+                predObj.setNumber(instObj.getNumber());
 
                 String output = objectMapper.writeValueAsString(predObj);
-                System.out.println(output);
                 return output;
             }
             return null;

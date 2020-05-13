@@ -1,13 +1,8 @@
 package spark.model;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.tensorflow.SavedModelBundle;
 import org.tensorflow.Session;
 import org.tensorflow.Tensor;
-import spark.model.data.InstObj;
-import spark.model.data.PredObj;
-
-import java.io.IOException;
 
 public class Inference {
     private SavedModelBundle savedModelBundle;
@@ -18,17 +13,14 @@ public class Inference {
         this.sess = savedModelBundle.session();
     }
 
-    public PredObj execute(InstObj instObj, String modelInput, String modelOutput) {
-        PredObj predObj = new PredObj();
-
-        Tensor x = Tensor.create(instObj.getInstances());
+    public float[][] execute(float[][][][] data, String modelInput, String modelOutput) {
+        Tensor x = Tensor.create(data);
         Tensor result = sess.runner()
                 .feed(modelInput, x)
                 .fetch(modelOutput)
                 .run()
                 .get(0);
 
-        predObj.setPredictions((float[][]) result.copyTo(new float[1][10]));
-        return predObj;
+        return (float[][]) result.copyTo(new float[1][10]);
     }
 }
