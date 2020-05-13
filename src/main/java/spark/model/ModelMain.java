@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -18,9 +17,10 @@ import org.apache.spark.streaming.kafka010.LocationStrategies;
 import spark.model.data.InstObj;
 import spark.model.data.PredObj;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class ModelMain {
+public class ModelMain implements Serializable {
     private String appName;
     private String bootstrap;
     private String inputTopic;
@@ -38,39 +38,46 @@ public class ModelMain {
     public void run() {
         SparkConf sparkConf = new SparkConf().setAppName(appName);
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
-        JavaStreamingContext jssc = new JavaStreamingContext(sc, Durations.milliseconds(interval));
+        JavaStreamingContext jssc = new JavaStreamingContext(sc, Durations.seconds(interval));
 
         Collection<String> topics = Arrays.asList(inputTopic);
 
-        /* Kafka Input */
-        final JavaInputDStream<ConsumerRecord<String, String>> kafkaStream = KafkaUtils.createDirectStream(
+        /* Input Step */
+        JavaInputDStream<ConsumerRecord<String, String>> kafkaStream = KafkaUtils.createDirectStream(
                 jssc,
                 LocationStrategies.PreferConsistent(),
                 ConsumerStrategies.<String, String>Subscribe(topics, setKafkaConfig(bootstrap)));
-
         JavaDStream<String> inputs = kafkaStream.map(ConsumerRecord::value);
+
+        /* Inference Step */
         JavaDStream<String> files = inputs.map(input -> {
-            ObjectMapper objectMapper = new ObjectMapper();
-            InstObj instObj = objectMapper.readValue(input, InstObj.class);
+            if(!input.equals(null)) {
+                System.out.println(input);
 
-            Inference inference = new Inference("/home/hjmoon/models/mnist/1");
-            PredObj predObj = inference.execute(instObj, "input:0", "output/Softmax:0");
+                ObjectMapper objectMapper = new ObjectMapper();
+                InstObj instObj = objectMapper.readValue(input, InstObj.class);
 
-            String output = objectMapper.writeValueAsString(predObj);
-            return output;
+                Inference inference = new Inference("/home/hjmoon/models/mnist/1");
+                PredObj predObj = inference.execute(instObj, "input:0", "output/Softmax:0");
+
+                String output = objectMapper.writeValueAsString(predObj);
+                System.out.println(output);
+                return output;
+            }
+            return null;
         });
 
+        /* Output Step */
         files.foreachRDD(result -> {
             result.foreach(tokafka -> {
                 KafkaProducer<String, String> producer = new KafkaProducer<String, String>(setKafkaProducer(bootstrap));
-                String output = tokafka;
-                System.out.println(output);
-                producer.send(new ProducerRecord<String, String>(outputTopic, output));
+                System.out.println(tokafka);
+                producer.send(new ProducerRecord<String, String>(outputTopic, tokafka));
                 producer.close();
             });
         });
-
         files.print();
+
         jssc.start();
         try {
             jssc.awaitTermination();
@@ -82,12 +89,11 @@ public class ModelMain {
     /* setting config of kafka consumer */
     public Map<String, Object> setKafkaConfig(String bootstrap) {
         Map<String, Object> properties = new HashMap<>();
-        properties.put("metadata.broker.list", bootstrap);
         properties.put("bootstrap.servers", bootstrap);
         properties.put("key.deserializer", StringDeserializer.class);
-        properties.put("value.deserializer", ByteArrayDeserializer.class);
+        properties.put("value.deserializer", StringDeserializer.class);
         properties.put("group.id", "test-group");
-        properties.put("auto.offset.reset", "earliest");
+        properties.put("auto.offset.reset", "latest");
         properties.put("enable.auto.commit", false);
         return properties;
     }
