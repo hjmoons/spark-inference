@@ -38,7 +38,7 @@ public class ModelMain implements Serializable {
     public void run() {
         SparkConf sparkConf = new SparkConf().setAppName(appName);
         JavaSparkContext sc = new JavaSparkContext(sparkConf);
-        JavaStreamingContext jssc = new JavaStreamingContext(sc, Durations.seconds(interval));
+        JavaStreamingContext jssc = new JavaStreamingContext(sc, Durations.milliseconds(interval));
 
         Collection<String> topics = Arrays.asList(inputTopic);
 
@@ -47,10 +47,10 @@ public class ModelMain implements Serializable {
                 jssc,
                 LocationStrategies.PreferConsistent(),
                 ConsumerStrategies.<String, String>Subscribe(topics, setKafkaConfig(bootstrap)));
-        JavaDStream<String> inputs = kafkaStream.map(ConsumerRecord::value);
+        JavaDStream<String> message = kafkaStream.map(ConsumerRecord::value);
 
         /* Inference Step */
-        JavaDStream<String> files = inputs.map(input -> {
+        JavaDStream<String> files = message.map(input -> {
             if(!input.equals(null)) {
                 ObjectMapper objectMapper = new ObjectMapper();
                 InstObj instObj = objectMapper.readValue(input, InstObj.class);
