@@ -48,6 +48,7 @@ public class ModelMain implements Serializable {
                 LocationStrategies.PreferConsistent(),
                 ConsumerStrategies.<String, String>Subscribe(topics, setKafkaConfig(bootstrap)));
         JavaDStream<String> inputs = kafkaStream.map(ConsumerRecord::value);
+        inputs.count().print();
 
         /* Inference Step */
         JavaDStream<String> files = inputs.map(input -> {
@@ -76,7 +77,7 @@ public class ModelMain implements Serializable {
                 producer.close();
             });
         });
-        files.print();
+        // files.print();
 
         jssc.start();
         try {
